@@ -16,10 +16,34 @@ export type GeneratedWorksheet = {
   highestPitch: string
 }
 
+export type IntervalClef = 'treble' | 'bass'
+
+export type GeneratedInterval = {
+  size: number
+  lower: GeneratedNote
+  upper: GeneratedNote
+}
+
+export const intervalNames = [
+  'Prime',
+  'Sekunde',
+  'Terz',
+  'Quarte',
+  'Quinte',
+  'Sexte',
+  'Septime',
+  'Oktave',
+  'None',
+  'Dezime',
+  'Undezime',
+  'Duodezime',
+]
+
 const naturalPitches = Array.from({ length: 5 }, (_, octaveIndex) => {
   const octave = octaveIndex + 3
   return ['C', 'D', 'E', 'F', 'G', 'A', 'B'].map((letter) => `${letter}${octave}`)
 }).flat()
+const noteLetters = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 
 const naturalSemitones: Record<string, number> = {
   C: 0,
@@ -76,6 +100,85 @@ function midiToNote(midi: number): GeneratedNote {
     octave: Math.floor(midi / 12) - 1,
     accidental: spelling.accidental,
   }
+}
+
+function diatonicIndex(note: GeneratedNote) {
+  return note.octave * 7 + noteLetters.indexOf(note.letter)
+}
+
+function diatonicNote(index: number): GeneratedNote {
+  const letterIndex = ((index % 7) + 7) % 7
+  return {
+    letter: noteLetters[letterIndex],
+    octave: Math.floor(index / 7),
+    accidental: null,
+  }
+}
+
+export function createRandomIntervals(
+  count: number,
+  selectedSizes: number[],
+  clef: IntervalClef,
+): GeneratedInterval[] {
+  if (!Number.isInteger(count) || count < 1 || count > 64) {
+    throw new Error('Die Anzahl der Intervalle muss zwischen 1 und 64 liegen.')
+  }
+  const sizes = [...new Set(selectedSizes)].filter((size) => Number.isInteger(size) && size >= 1 && size <= 12)
+  if (sizes.length === 0) throw new Error('Wähle mindestens ein Intervall aus.')
+
+  const lowestIndex = diatonicIndex({ letter: 'C', octave: clef === 'treble' ? 4 : 2, accidental: null })
+  const highestNote = clef === 'treble'
+    ? { letter: 'C', octave: 6, accidental: null }
+    : { letter: 'A', octave: 4, accidental: null }
+  const highestIndex = diatonicIndex(highestNote)
+  const shuffledSizes = [...sizes]
+  for (let index = shuffledSizes.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    const currentSize = shuffledSizes[index]
+    shuffledSizes[index] = shuffledSizes[swapIndex]
+    shuffledSizes[swapIndex] = currentSize
+  }
+  const intervalSizes = Array.from({ length: count }, (_, index) => shuffledSizes[index % shuffledSizes.length])
+  for (let index = intervalSizes.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    const currentSize = intervalSizes[index]
+    intervalSizes[index] = intervalSizes[swapIndex]
+    intervalSizes[swapIndex] = currentSize
+  }
+
+  const intervals = intervalSizes.map((size) => {
+    const candidates = Array.from({ length: highestIndex - lowestIndex + 1 }, (_, index) => lowestIndex + index)
+      .filter((index) => index + size - 1 <= highestIndex)
+    const lowerIndex = candidates[Math.floor(Math.random() * candidates.length)]
+    return {
+      size,
+      lower: diatonicNote(lowerIndex),
+      upper: diatonicNote(lowerIndex + size - 1),
+    }
+  })
+
+  const noteSlots = intervals.flatMap((interval) => (
+    interval.size === 1 ? [interval.lower] : [interval.lower, interval.upper]
+  ))
+  const sharpEligible = noteSlots.filter((note) => !(clef === 'treble' && note.letter === 'C' && note.octave === 6))
+  const availableSlots = [...sharpEligible]
+
+  if (availableSlots.length >= 2) {
+    const sharpNote = availableSlots.splice(Math.floor(Math.random() * availableSlots.length), 1)[0]
+    const flatNote = availableSlots.splice(Math.floor(Math.random() * availableSlots.length), 1)[0]
+    sharpNote.accidental = '#'
+    flatNote.accidental = 'b'
+  } else if (availableSlots.length === 1) {
+    availableSlots[0].accidental = Math.random() < 0.5 ? '#' : 'b'
+  }
+
+  for (const note of noteSlots) {
+    if (note.accidental === null && Math.random() < 0.3) {
+      note.accidental = Math.random() < 0.5 ? '#' : 'b'
+    }
+  }
+
+  return intervals
 }
 
 export function createRandomWorksheet(

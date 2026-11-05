@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { IntervalStaff } from './IntervalStaff'
 import { WorksheetStaff } from './WorksheetStaff'
-import { createRandomWorksheet, type AccidentalMode, type GeneratedWorksheet } from './music'
+import { createRandomIntervals, createRandomWorksheet, intervalNames, type AccidentalMode, type GeneratedInterval, type GeneratedWorksheet, type IntervalClef } from './music'
 
 type KeySignature = {
   id: string
@@ -37,7 +38,7 @@ const accidentalModes: { value: AccidentalMode; title: string; detail: string }[
   { value: 'key', title: 'Generalvorzeichen', detail: 'Tonart auswählen' },
 ]
 
-function App() {
+function WorksheetConfigurator() {
   const [noteCountInput, setNoteCountInput] = useState('16')
   const [beatsPerMeasure, setBeatsPerMeasure] = useState(4)
   const [measuresPerRow, setMeasuresPerRow] = useState(2)
@@ -89,11 +90,11 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#konfiguration" aria-label="Lehrkraftstudio, Start">
+        <a className="brand" href="/" aria-label="Lehrkraftstudio, Startseite">
           <span className="brand-mark" aria-hidden="true"><span /><span /><span /></span>
           <span>lehrkraft<span className="brand-accent">.</span></span>
         </a>
-        <span className="topbar-label">MATERIALWERKSTATT <i /> NOTENBLATT</span>
+        <a className="topbar-label breadcrumb-link" href="/">← ALLE ANWENDUNGEN</a>
       </header>
 
       <main id="konfiguration">
@@ -335,6 +336,273 @@ function App() {
       <footer className="page-footer"><span>LEHRKRAFTSTUDIO <i /> NOTENBLATTWERKSTATT</span><span>VIOLINSCHLÜSSEL · VIERTELNOTEN</span></footer>
     </div>
   )
+}
+
+function IntervalGenerator() {
+  const [countInput, setCountInput] = useState('12')
+  const [selectedSizes, setSelectedSizes] = useState<number[]>([2, 3, 4, 5])
+  const [clef, setClef] = useState<IntervalClef>('treble')
+  const [measuresPerRow, setMeasuresPerRow] = useState(2)
+  const [intervals, setIntervals] = useState<GeneratedInterval[] | null>(null)
+  const count = Number(countInput)
+  const validCount = Number.isInteger(count) && count >= 1 && count <= 64
+  const intervalMeasureCount = intervals ? Math.ceil(intervals.length / 4) : 0
+
+  function toggleSize(size: number) {
+    setSelectedSizes((current) => current.includes(size)
+      ? current.filter((value) => value !== size)
+      : [...current, size].sort((a, b) => a - b))
+    setIntervals(null)
+  }
+
+  function generateIntervals() {
+    if (!validCount || selectedSizes.length === 0) return
+    const nextIntervals = createRandomIntervals(count, selectedSizes, clef)
+    setMeasuresPerRow((current) => Math.min(current, Math.ceil(nextIntervals.length / 4)))
+    setIntervals(nextIntervals)
+  }
+
+  return (
+    <div className="app-shell">
+      <header className="topbar">
+        <a className="brand" href="/" aria-label="Lehrkraftstudio, Startseite">
+          <span className="brand-mark" aria-hidden="true"><span /><span /><span /></span>
+          <span>lehrkraft<span className="brand-accent">.</span></span>
+        </a>
+        <a className="topbar-label breadcrumb-link" href="/">← ALLE ANWENDUNGEN</a>
+      </header>
+
+      <main>
+        <section className="page-heading" aria-labelledby="interval-page-title">
+          <div className="heading-copy">
+            <p className="eyebrow"><span className="eyebrow-index">02</span> GEHÖRBILDUNG &amp; NOTENLEHRE</p>
+            <h1 id="interval-page-title">Intervalle <em>generieren</em></h1>
+            <p className="page-description">Stelle dir zufällige Intervalle im Violin- oder Bassschlüssel zusammen.</p>
+          </div>
+          <div className="clef-stamp" aria-hidden="true"><span>{clef === 'treble' ? '𝄞' : '𝄢'}</span><small>{clef === 'treble' ? 'VIOLINSCHLÜSSEL' : 'BASSSCHLÜSSEL'}</small></div>
+        </section>
+
+        <div className="workspace interval-workspace">
+          <form className="settings-form" onSubmit={(event) => event.preventDefault()}>
+            <section className="form-section interval-form-section" aria-labelledby="interval-count-title">
+              <div className="section-heading">
+                <span className="section-number">01</span>
+                <div>
+                  <h2 id="interval-count-title">Anzahl</h2>
+                  <p>Wie viele Intervalle sollen angezeigt werden?</p>
+                </div>
+              </div>
+              <div className="amount-control">
+                <label htmlFor="interval-count">Anzahl der Intervalle</label>
+                <div className="number-input-wrap">
+                  <input
+                    id="interval-count"
+                    type="number"
+                    min="1"
+                    max="64"
+                    step="1"
+                    value={countInput}
+                    onChange={(event) => {
+                      setCountInput(event.target.value)
+                      setIntervals(null)
+                    }}
+                    aria-describedby="interval-count-help interval-count-error"
+                  />
+                  <span>Intervalle</span>
+                </div>
+                <small id="interval-count-help">1 bis 64 Intervalle pro Blatt</small>
+                {!validCount && <small id="interval-count-error" className="field-error">Bitte gib eine ganze Zahl zwischen 1 und 64 ein.</small>}
+              </div>
+            </section>
+
+            <section className="form-section interval-form-section" aria-labelledby="clef-title">
+              <div className="section-heading">
+                <span className="section-number">02</span>
+                <div>
+                  <h2 id="clef-title">Notenschlüssel</h2>
+                  <p>Wähle die Lage der Noten auf dem System.</p>
+                </div>
+              </div>
+              <fieldset className="clef-options" aria-label="Notenschlüssel auswählen">
+                {([
+                  { value: 'treble', title: 'Violinschlüssel', symbol: '𝄞' },
+                  { value: 'bass', title: 'Bassschlüssel', symbol: '𝄢' },
+                ] as const).map((option) => (
+                  <label key={option.value} className={`mode-option${clef === option.value ? ' is-selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="interval-clef"
+                      value={option.value}
+                      checked={clef === option.value}
+                      onChange={() => {
+                        setClef(option.value)
+                        setIntervals(null)
+                      }}
+                    />
+                    <span className="mode-symbol" aria-hidden="true">{option.symbol}</span>
+                    <span className="mode-copy"><strong>{option.title}</strong><small>Noten im {option.value === 'treble' ? 'oberen' : 'unteren'} Register</small></span>
+                    <span className="radio-indicator" aria-hidden="true" />
+                  </label>
+                ))}
+              </fieldset>
+            </section>
+
+            <section className="form-section interval-form-section" aria-labelledby="interval-selection-title">
+              <div className="section-heading">
+                <span className="section-number">03</span>
+                <div>
+                  <h2 id="interval-selection-title">Intervalle</h2>
+                  <p>Wähle die Intervallgrößen aus, die vorkommen dürfen.</p>
+                </div>
+              </div>
+              <fieldset className="interval-choices" aria-describedby="interval-choice-help interval-choice-error">
+                <legend className="sr-only">Mögliche Intervalle</legend>
+                {intervalNames.map((name, index) => {
+                  const size = index + 1
+                  return (
+                    <label className={`interval-choice${selectedSizes.includes(size) ? ' is-selected' : ''}`} key={size}>
+                      <input type="checkbox" checked={selectedSizes.includes(size)} onChange={() => toggleSize(size)} />
+                      <span className="interval-choice-number">{String(size).padStart(2, '0')}</span>
+                      <span>{name}</span>
+                    </label>
+                  )
+                })}
+              </fieldset>
+              <small id="interval-choice-help" className="interval-help">Diatonische Intervalle von der Prime bis zur Duodezime. Der höchste Ton ist c'''.</small>
+              {selectedSizes.length === 0 && <small id="interval-choice-error" className="field-error">Wähle mindestens ein Intervall aus.</small>}
+            </section>
+          </form>
+
+          <aside className="summary-panel interval-summary" aria-labelledby="interval-summary-title">
+            <div className="summary-topline"><span>DEINE AUSWAHL</span><span className="status-dot" /></div>
+            <h2 id="interval-summary-title">Intervallblatt</h2>
+            <div className="summary-stats">
+              <div className="summary-stat"><strong>{validCount ? count : '—'}</strong><span>Intervalle</span></div>
+              <div className="summary-divider" />
+              <div className="summary-stat"><strong>{selectedSizes.length}</strong><span>Intervallgrößen</span></div>
+            </div>
+            <div className="summary-detail-list">
+              <div className="summary-detail"><span>Schlüssel</span><strong>{clef === 'treble' ? 'Violinschlüssel' : 'Bassschlüssel'}</strong></div>
+              <div className="summary-detail"><span>Auswahl</span><strong>{selectedSizes.length === 0
+                ? 'Keine'
+                : selectedSizes.length <= 2
+                  ? selectedSizes.map((size) => intervalNames[size - 1]).join(' · ')
+                  : `${intervalNames[selectedSizes[0] - 1]} + ${selectedSizes.length - 1} weitere`}</strong></div>
+            </div>
+            <button className="generate-button" type="button" onClick={generateIntervals} disabled={!validCount || selectedSizes.length === 0}>
+              <span aria-hidden="true">✦</span>
+              {intervals ? 'Neu generieren' : 'Intervalle generieren'}
+            </button>
+          </aside>
+        </div>
+
+        {intervals && (
+          <section className="generated-worksheet interval-results" aria-labelledby="interval-results-title">
+            <div className="generated-heading">
+              <div>
+                <p className="eyebrow"><span className="eyebrow-index">02</span> ZUFÄLLIGE INTERVALLE</p>
+                <h2 id="interval-results-title">Dein <em>Intervallblatt</em></h2>
+                <p>{intervals.length} Intervalle · 4/4 · {clef === 'treble' ? 'Violinschlüssel' : 'Bassschlüssel'}</p>
+              </div>
+              <label className="generated-layout-control">
+                <span>TAKTE PRO ZEILE</span>
+                <select
+                  aria-label="Takte pro Zeile im Intervallblatt"
+                  value={Math.min(measuresPerRow, intervalMeasureCount)}
+                  onChange={(event) => setMeasuresPerRow(Number(event.target.value))}
+                >
+                  {Array.from({ length: intervalMeasureCount }, (_, index) => index + 1).map((measureCount) => (
+                    <option key={measureCount} value={measureCount}>{measureCount} {measureCount === 1 ? 'Takt' : 'Takte'}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <IntervalStaff intervals={intervals} clef={clef} measuresPerRow={Math.min(measuresPerRow, intervalMeasureCount)} />
+          </section>
+        )}
+      </main>
+
+      <footer className="page-footer"><span>LEHRKRAFTSTUDIO <i /> INTERVALLWERKSTATT</span><span>VIOLIN- &amp; BASSSCHLÜSSEL</span></footer>
+    </div>
+  )
+}
+
+function HomePage() {
+  return (
+    <div className="app-shell home-shell">
+      <header className="topbar">
+        <a className="brand" href="/" aria-label="Lehrkraftstudio, Startseite">
+          <span className="brand-mark" aria-hidden="true"><span /><span /><span /></span>
+          <span>lehrkraft<span className="brand-accent">.</span></span>
+        </a>
+        <span className="topbar-label">DEIN ARBEITSBEREICH <i /> MATERIALWERKSTATT</span>
+      </header>
+
+      <main>
+        <section className="home-hero" aria-labelledby="home-title">
+          <div className="home-hero-copy">
+            <p className="eyebrow"><span className="eyebrow-index">✦</span> DEIN LEHRKRAFTSTUDIO</p>
+            <h1 id="home-title">Gute Ideen.<br /><em>Gutes Material.</em></h1>
+            <p className="home-intro">Praktische Werkzeuge, mit denen du Unterrichtsmaterial einfach vorbereitest und passend für deine Klasse gestaltest.</p>
+            <a className="home-primary-link" href="/notenblatt">
+              <span className="home-primary-number">01</span>
+              <span>Zum Notenblatt konfigurieren</span>
+              <span className="home-link-arrow" aria-hidden="true">↗</span>
+            </a>
+            <p className="home-first-note">Der erste Anwendungsfall ist bereit.</p>
+          </div>
+        </section>
+
+        <section className="home-applications" aria-labelledby="applications-title">
+          <div className="home-section-heading">
+            <div>
+              <p className="eyebrow">WERKZEUGE FÜR DEINEN UNTERRICHT</p>
+              <h2 id="applications-title">Anwendungen</h2>
+            </div>
+            <p>Wähle aus, womit du starten möchtest.</p>
+          </div>
+          <div className="applications-grid">
+            <a className="application-card" href="/notenblatt">
+              <span className="application-index">01</span>
+              <span className="application-card-copy">
+                <span className="application-category">MUSIK · ÜBUNGSBLATT</span>
+                <strong>Notenblatt konfigurieren</strong>
+                <span className="application-description">Erstelle ein individuelles Notenblatt mit passendem Tonumfang, Takt und Vorzeichen.</span>
+              </span>
+              <span className="application-open">Öffnen <span aria-hidden="true">↗</span></span>
+            </a>
+            <a className="application-card" href="/intervalle">
+              <span className="application-index">02</span>
+              <span className="application-card-copy">
+                <span className="application-category">MUSIK · GEHÖRBILDUNG</span>
+                <strong>Intervalle generieren</strong>
+                <span className="application-description">Stelle zufällige Intervalle zusammen und wähle zwischen Violin- und Bassschlüssel.</span>
+              </span>
+              <span className="application-open">Öffnen <span aria-hidden="true">↗</span></span>
+            </a>
+          </div>
+        </section>
+      </main>
+
+      <footer className="page-footer"><span>LEHRKRAFTSTUDIO <i /> MATERIALWERKSTATT</span><span>WERKZEUGE FÜR DEINEN UNTERRICHT</span></footer>
+    </div>
+  )
+}
+
+function App() {
+  const currentPath = window.location.pathname.replace(/\/+$/, '')
+  const isConfigurator = currentPath === '/notenblatt'
+  const isIntervalGenerator = currentPath === '/intervalle'
+
+  useEffect(() => {
+    document.title = isConfigurator
+      ? 'Notenblatt konfigurieren | Lehrkraftstudio'
+      : isIntervalGenerator
+        ? 'Intervalle generieren | Lehrkraftstudio'
+        : 'Lehrkraftstudio | Materialwerkstatt'
+  }, [isConfigurator, isIntervalGenerator])
+
+  return isConfigurator ? <WorksheetConfigurator /> : isIntervalGenerator ? <IntervalGenerator /> : <HomePage />
 }
 
 export default App
