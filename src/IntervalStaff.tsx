@@ -65,12 +65,13 @@ export function IntervalStaff({
 
           const tickables = Array.from({ length: 4 }, (_, beatIndex) => {
             const interval = measureIntervals[beatIndex]
-            if (!interval) return new StaveNote({ keys: ['b/4'], duration: 'qr' })
+            if (!interval) return new StaveNote({ keys: ['b/4'], duration: 'qr', clef })
 
             const notes = interval.size === 1 ? [interval.lower] : [interval.lower, interval.upper]
             const note = new StaveNote({
               keys: notes.map(({ letter, octave }) => `${letter}/${octave}`),
               duration: 'q',
+              clef,
             })
             notes.forEach(({ accidental }, noteIndex) => {
               if (accidental === '#' || accidental === 'b') {
