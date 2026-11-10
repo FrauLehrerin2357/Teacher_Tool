@@ -126,10 +126,13 @@ export function createRandomIntervals(
   const sizes = [...new Set(selectedSizes)].filter((size) => Number.isInteger(size) && size >= 1 && size <= 12)
   if (sizes.length === 0) throw new Error('Wähle mindestens ein Intervall aus.')
 
-  const lowestIndex = diatonicIndex({ letter: 'C', octave: clef === 'treble' ? 4 : 2, accidental: null })
+  const lowestNote = clef === 'treble'
+    ? { letter: 'C', octave: 4, accidental: null }
+    : { letter: 'G', octave: 2, accidental: null }
+  const lowestIndex = diatonicIndex(lowestNote)
   const highestNote = clef === 'treble'
     ? { letter: 'C', octave: 6, accidental: null }
-    : { letter: 'A', octave: 4, accidental: null }
+    : { letter: 'D', octave: 4, accidental: null }
   const highestIndex = diatonicIndex(highestNote)
   const shuffledSizes = [...sizes]
   for (let index = shuffledSizes.length - 1; index > 0; index--) {
